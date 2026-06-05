@@ -1,9 +1,12 @@
-	
-name	"nodejs-cicd-app"
-version	"1.0.0"
-description	"Simple NodeJS app for CI/CD"
-main	"server.js"
-scripts	
-start	"node server.js"
-dependencies	
-express	"^4.19.2"
+{
+  "name": "nodejs-cicd-app",
+  "version": "1.0.0",
+  "description": "Simple NodeJS CI/CD App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -139,7 +139,7 @@ app.get("/", (req, res) => {
       </div>
 
       <footer>
-        Created by Amit Patidar | DevOps Engineer
+        Created by devops team | DevOps Engineer
       </footer>
 
     </div>

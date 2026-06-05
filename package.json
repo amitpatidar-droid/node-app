@@ -1,11 +1,21 @@
 {
-  "name": "nodejs-cicd-app",
+  "name": "devops-cicd-project",
   "version": "1.0.0",
-  "description": "Simple NodeJS CI/CD App",
+  "description": "NodeJS DevOps CI/CD Application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
+  "keywords": [
+    "nodejs",
+    "devops",
+    "terraform",
+    "github-actions",
+    "cicd",
+    "aws"
+  ],
+  "author": "Amit Patidar",
+  "license": "ISC",
   "dependencies": {
     "express": "^4.19.2"
   }

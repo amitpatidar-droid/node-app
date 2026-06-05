@@ -1,0 +1,71 @@
+name: NodeJS CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout Repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Create PEM file from GitHub Secret
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > project.pem
+          chmod 400 project.pem
+
+      # Test SSH Connection
+      - name: Test EC2 Connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
+            echo 'EC2 Connected Successfully'
+          "
+
+      # Install NodeJS on EC2
+      - name: Install NodeJS & PM2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
+            sudo apt update -y
+            sudo apt install nodejs npm -y
+            sudo npm install pm2 -g
+          "
+
+      # Create App Directory
+      - name: Create App Folder
+        run: |
+          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
+            mkdir -p /home/ubuntu/node-app
+          "
+
+      # Copy Application Files
+      - name: Copy App Files to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i project.pem \
+          server.js package.json \
+          ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/node-app/
+
+      # Install Dependencies
+      - name: Install Node Modules
+        run: |
+          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
+            cd /home/ubuntu/node-app
+            npm install
+          "
+
+      # Restart Application using PM2
+      - name: Start Application
+        run: |
+          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
+            cd /home/ubuntu/node-app
+
+            pm2 delete node-app || true
+
+            pm2 start server.js --name node-app
+            pm2 save
+          "

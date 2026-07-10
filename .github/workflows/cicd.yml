@@ -12,7 +12,7 @@ permissions:
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: node-app
-  ECS_CLUSTER: node-cluster
+  ECS_CLUSTER: hopeful-kangaroo-xuuw98
   ECS_SERVICE: node-service
 
 jobs:

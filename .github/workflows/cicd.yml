@@ -1,71 +1,83 @@
-name: NodeJS CI/CD Pipeline
+name: Build and Deploy ECS
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: node-app
+  ECS_CLUSTER: node-cluster
+  ECS_SERVICE: node-service
+
 jobs:
+
   deploy:
+
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout Repository
-      - name: Checkout Code
-        uses: actions/checkout@v4
 
-      # Create PEM file from GitHub Secret
-      - name: Setup SSH Key
-        run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > project.pem
-          chmod 400 project.pem
+    - uses: actions/checkout@v4
 
-      # Test SSH Connection
-      - name: Test EC2 Connection
-        run: |
-          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
-            echo 'EC2 Connected Successfully'
-          "
+    #######################################################
 
-      # Install NodeJS on EC2
-      - name: Install NodeJS & PM2
-        run: |
-          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
-            sudo apt update -y
-            sudo apt install nodejs npm -y
-            sudo npm install pm2 -g
-          "
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ secrets.AWS_REGION }}
 
-      # Create App Directory
-      - name: Create App Folder
-        run: |
-          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
-            mkdir -p /home/ubuntu/node-app
-          "
+    #######################################################
 
-      # Copy Application Files
-      - name: Copy App Files to EC2
-        run: |
-          scp -o StrictHostKeyChecking=no -i project.pem \
-          server.js package.json \
-          ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/node-app/
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
 
-      # Install Dependencies
-      - name: Install Node Modules
-        run: |
-          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
-            cd /home/ubuntu/node-app
-            npm install
-          "
+    #######################################################
 
-      # Restart Application using PM2
-      - name: Start Application
-        run: |
-          ssh -o StrictHostKeyChecking=no -i project.pem ubuntu@${{ secrets.EC2_HOST }} "
-            cd /home/ubuntu/node-app
+    - name: Build Docker Image
+      run: |
+        docker build \
+        -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} .
 
-            pm2 delete node-app || true
+    #######################################################
 
-            pm2 start server.js --name node-app
-            pm2 save
-          "
+    - name: Push Docker Image
+      run: |
+        docker push \
+        ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+    #######################################################
+
+    - name: Download Current Task Definition
+      run: |
+        aws ecs describe-task-definition \
+        --task-definition node-app \
+        --query taskDefinition \
+        > task-definition.json
+
+    #######################################################
+
+    - name: Fill New Image
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: node-app
+        image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+    #######################################################
+
+    - name: Deploy ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        service: ${{ env.ECS_SERVICE }}
+        wait-for-service-stability: true

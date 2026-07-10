@@ -175,7 +175,7 @@ app.get("/", (req, res) => {
       </div>
 
       <div class="status">
-        ✅ LIVE ON AWS EC2
+        ✅ LIVE ON AWS ECS Container app
       </div>
 
       <div class="grid">
